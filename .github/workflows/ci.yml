@@ -63,7 +63,10 @@ jobs:
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.2'
+        # 8.5, not 8.2: composer.lock pins PHPUnit 13, which requires PHP >=8.4.1.
+        # On 8.2 `composer install` fails the platform check, vendor/ is never
+        # created, and the phpcs and phpstan steps below fail on missing files.
+        php-version: '8.5'
         extensions: mbstring, intl
         coverage: none
         tools: cs2pr, phpstan:2.1
