@@ -7,6 +7,7 @@
 #   ./dev restart   down, then up
 #   ./dev logs      follow the container logs
 #   ./dev test      run the PHPUnit suite (extra args go to phpunit)
+#   ./dev css       compile the Tailwind theme (add --watch while editing templates)
 #
 set -euo pipefail
 
@@ -87,6 +88,30 @@ case "${1:-}" in
         # composer wants a writable HOME, which www-data does not have here.
         "${COMPOSE[@]}" "${METHOD[@]}" "${TTY[@]}" --user www-data app \
             vendor/bin/phpunit --colors=always "$@"
+        ;;
+    css)
+        shift
+        # The Tailwind standalone CLI: a single binary, so the PHP-only image
+        # stays free of Node and npm. Cached in tmp/ (gitignored) and fetched on
+        # first use; the compiled CSS is committed, so nobody needs this binary
+        # just to run the app.
+        TAILWIND_VERSION="v4.3.3"
+        TAILWIND_BIN="tmp/tailwindcss-${TAILWIND_VERSION}"
+
+        if [ ! -x "${TAILWIND_BIN}" ]; then
+            case "$(uname -m)" in
+                x86_64)          TAILWIND_ARCH="x64" ;;
+                aarch64|arm64)   TAILWIND_ARCH="arm64" ;;
+                *) echo "Error: no Tailwind build for $(uname -m)." >&2; exit 1 ;;
+            esac
+            echo "Fetching Tailwind ${TAILWIND_VERSION} (${TAILWIND_ARCH})..."
+            mkdir -p tmp
+            curl -sSfL -o "${TAILWIND_BIN}" \
+                "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-${TAILWIND_ARCH}"
+            chmod +x "${TAILWIND_BIN}"
+        fi
+
+        "${TAILWIND_BIN}" --input resources/css/app.css --output webroot/css/app.css --minify "$@"
         ;;
     ""|-h|--help|help)
         usage

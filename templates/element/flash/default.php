@@ -4,12 +4,10 @@
  * @var array $params
  * @var string $message
  */
-$class = 'message';
-if (!empty($params['class'])) {
-    $class .= ' ' . $params['class'];
-}
 if (!isset($params['escape']) || $params['escape'] !== false) {
     $message = h($message);
 }
+$tone = $params['tone'] ?? 'border-navy-200 bg-navy-50 text-navy-800';
 ?>
-<div class="<?= h($class) ?>" onclick="this.classList.add('hidden');"><?= $message ?></div>
+<div class="mb-5 cursor-pointer rounded-xl border px-4 py-3 text-sm <?= h($tone) ?>"
+     role="status" onclick="this.remove();"><?= $message ?></div>

@@ -19,7 +19,7 @@ It is a demo, not a production accounting system. Prefer clarity and correctness
 | Language  | PHP 8.5.4 |
 | Framework | CakePHP 5.4.1 |
 | Database  | SQLite (development and test) |
-| Interface | Server-rendered CakePHP templates (Milligram CSS) |
+| Interface | Server-rendered CakePHP templates (Tailwind CSS 4) |
 | Tests     | PHPUnit 13.3.2 |
 | Linting   | PHP_CodeSniffer 4 with the `CakePHP` standard |
 
@@ -46,6 +46,7 @@ composer cs-check         # lint
 composer cs-fix           # autofix lint
 bin/cake bake all Invoices    # scaffold model+controller+templates from schema
 bin/cake migrations migrate   # apply migrations
+./dev css                     # compile the Tailwind theme (--watch while editing templates)
 ```
 
 **Never run `bin/cake` with `sudo`.** It does not need root, and running as root leaves
@@ -106,6 +107,33 @@ Two details worth knowing:
   will hit permission errors writing to `tmp/` and `logs/`.
 - **The salt in `docker-compose.yml` is a development value.** Generate a real one with
   `openssl rand -hex 32` before deploying anywhere that matters.
+
+## Styling
+
+Tailwind CSS 4, compiled by the **standalone CLI** — a single binary, so the PHP-only Docker
+image needs no Node or npm, and the page pulls no CDN at runtime.
+
+- `resources/css/app.css` is the **source**: theme tokens, `@font-face`, and the handful of
+  `@layer components` classes. Edit this one.
+- `webroot/css/app.css` is the **compiled output** and is committed, so a fresh clone renders
+  correctly without running any build. Never edit it by hand; `./dev css` overwrites it.
+- `./dev css` fetches the pinned Tailwind binary into `tmp/` on first use. Add `--watch` while
+  working on templates.
+
+**Rebuild after changing templates.** Tailwind only emits classes it can find in the files listed
+by the `@source` directives, so a new utility class in a template does nothing until you re-run
+`./dev css`.
+
+The palette is two families, both defined in `@theme`: `navy-*` (dark blue — headings, buttons,
+focus rings) and `cream-*` (the light page ground). Prefer these over Tailwind's stock `blue-*`
+or `slate-*` so the theme stays in one place.
+
+Only `.field-label`, `.field-input` and `.btn-primary` are promoted out of utilities, because they
+repeat verbatim across every form. Everything else stays as utilities in the markup.
+
+**Watch out for dynamically built class names.** Tailwind scans for literal strings, so
+`"badge-{$invoice->status}"` will be purged. Write the full class name out (as
+`templates/element/flash/*.php` does) or safelist it.
 
 ## Architecture decisions
 

@@ -2,35 +2,14 @@
 /**
  * @var \App\View\AppView $this
  * @var string $message
- * @var string $url
  */
 use Cake\Core\Configure;
-use Cake\Error\Debugger;
 
-$this->setLayout('error');
-
-if (Configure::read('debug')) :
-    $this->setLayout('dev_error');
-
-    $this->assign('title', $message);
-    $this->assign('templateName', 'error500.php');
-
-    $this->start('file');
+$this->assign('title', __d('cake', 'An Internal Error Has Occurred'));
 ?>
-<?php if ($error instanceof Error) : ?>
-    <?php $file = $error->getFile() ?>
-    <?php $line = $error->getLine() ?>
-    <strong>Error in: </strong>
-    <?= $this->Html->link(sprintf('%s, line %s', Debugger::trimPath($file), $line), Debugger::editorUrl($file, $line)); ?>
+<p class="text-xs font-bold uppercase tracking-widest text-navy-400"><?= __('Error') ?></p>
+<h1 class="text-2xl font-bold tracking-tight text-navy-900"><?= __d('cake', 'An Internal Error Has Occurred') ?></h1>
+<p class="mt-3 text-navy-600"><?= h($message) ?></p>
+<?php if (Configure::read('debug') && isset($url)) : ?>
+    <p class="mt-4 text-sm text-navy-500"><?= __d('cake', 'Attempted URL') ?>: <code><?= h($url) ?></code></p>
 <?php endif; ?>
-<?php
-    echo $this->element('auto_table_warning');
-
-    $this->end();
-endif;
-?>
-<h2><?= __d('cake', 'An Internal Error Has Occurred.') ?></h2>
-<p class="error">
-    <strong><?= __d('cake', 'Error') ?>: </strong>
-    <?= h($message) ?>
-</p>

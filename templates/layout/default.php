@@ -1,55 +1,47 @@
 <?php
 /**
- * CakePHP(tm) : Rapid Development Framework (https://cakephp.org)
- * Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
+ * Application shell: slim header, content well, footer.
  *
- * Licensed under The MIT License
- * For full copyright and license information, please see the LICENSE.txt
- * Redistributions of files must retain the above copyright notice.
- *
- * @copyright     Copyright (c) Cake Software Foundation, Inc. (https://cakefoundation.org)
- * @link          https://cakephp.org CakePHP(tm) Project
- * @since         0.10.0
- * @license       https://opensource.org/licenses/mit-license.php MIT License
  * @var \App\View\AppView $this
  */
-
-$cakeDescription = 'CakePHP: the rapid development php framework';
+$title = $this->fetch('title') ?: __('JussiFlow');
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en" class="h-full">
 <head>
     <?= $this->Html->charset() ?>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>
-        <?= $cakeDescription ?>:
-        <?= $this->fetch('title') ?>
-    </title>
+    <title><?= h($title) ?> &middot; <?= __('JussiFlow') ?></title>
     <?= $this->Html->meta('icon') ?>
-
-    <?= $this->Html->css(['normalize.min', 'milligram.min', 'fonts', 'cake']) ?>
-
+    <?= $this->Html->css('app') ?>
     <?= $this->fetch('meta') ?>
     <?= $this->fetch('css') ?>
     <?= $this->fetch('script') ?>
 </head>
-<body>
-    <nav class="top-nav">
-        <div class="top-nav-title">
-            <a href="<?= $this->Url->build('/') ?>"><span>Cake</span>PHP</a>
+<body class="flex min-h-full flex-col font-sans">
+    <header class="border-b border-cream-300 bg-cream-50">
+        <div class="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
+            <a href="<?= $this->Url->build('/') ?>" class="text-lg font-bold tracking-tight text-navy-800">
+                Jussi<span class="text-navy-500">Flow</span>
+            </a>
+            <a href="<?= $this->Url->build('/pages/login') ?>"
+               class="text-sm font-bold text-navy-600 hover:text-navy-800">
+                <?= __('Sign in') ?>
+            </a>
         </div>
-        <div class="top-nav-links">
-            <a target="_blank" rel="noopener" href="https://book.cakephp.org/5/">Documentation</a>
-            <a target="_blank" rel="noopener" href="https://api.cakephp.org/">API</a>
-        </div>
-    </nav>
-    <main class="main">
-        <div class="container">
+    </header>
+
+    <main class="flex-1">
+        <div class="mx-auto w-full max-w-5xl px-6 py-10">
             <?= $this->Flash->render() ?>
             <?= $this->fetch('content') ?>
         </div>
     </main>
-    <footer>
+
+    <footer class="border-t border-cream-300 bg-cream-50">
+        <div class="mx-auto w-full max-w-5xl px-6 py-5 text-sm text-navy-500">
+            <?= __('JussiFlow — invoicing demo') ?>
+        </div>
     </footer>
 </body>
 </html>
