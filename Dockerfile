@@ -10,10 +10,12 @@
 ###############################################################################
 FROM php:8.5-apache AS base
 
-# CakePHP requires ext-intl. zip speeds up Composer. mbstring, pdo_sqlite, dom
-# and xml ship with the base image, and opcache is compiled into php:8.5 and
-# enabled by default — building it here fails, since it produces no .so to
-# install.
+# CakePHP requires ext-intl. zip speeds up Composer. pdo_mysql is what the app
+# talks to MariaDB through — it compiles against PHP's bundled mysqlnd, so it
+# needs no client library of its own. mbstring, pdo_sqlite (still used by the
+# test suite), dom and xml ship with the base image, and opcache is compiled
+# into php:8.5 and enabled by default — building it here fails, since it
+# produces no .so to install.
 #
 # libicu-dev is intentionally NOT purged afterwards: the compiled intl extension
 # links against the ICU runtime libraries it provides.
@@ -23,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         git \
     && docker-php-ext-configure intl \
-    && docker-php-ext-install -j"$(nproc)" intl zip \
+    && docker-php-ext-install -j"$(nproc)" intl zip pdo_mysql \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

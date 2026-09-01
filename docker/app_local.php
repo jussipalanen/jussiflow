@@ -10,6 +10,7 @@ declare(strict_types=1);
  */
 
 use Cake\Database\Connection;
+use Cake\Database\Driver\Mysql;
 use Cake\Database\Driver\Sqlite;
 
 use function Cake\Core\env;
@@ -22,10 +23,18 @@ return [
     ],
 
     'Datasources' => [
+        // The application runs on MariaDB (the `db` service in
+        // docker-compose.yml). These keys are the fallback; in practice
+        // docker-compose.yml sets DATABASE_URL, and the DSN below wins.
         'default' => [
             'className' => Connection::class,
-            'driver' => Sqlite::class,
-            'database' => env('SQLITE_DATABASE', ROOT . DS . 'data' . DS . 'jussiflow.sqlite'),
+            'driver' => Mysql::class,
+            'host' => env('DB_HOST', 'db'),
+            'port' => env('DB_PORT', '3306'),
+            'username' => env('DB_USER', 'jussiflow'),
+            'password' => env('DB_PASSWORD', 'jussiflow'),
+            'database' => env('DB_NAME', 'jussiflow'),
+            'encoding' => 'utf8mb4',
             'timezone' => 'UTC',
             'cacheMetadata' => true,
             'quoteIdentifiers' => false,
@@ -33,6 +42,10 @@ return [
             'url' => env('DATABASE_URL', null),
         ],
 
+        // Tests stay on SQLite deliberately: `composer test` then needs no
+        // database server, and the suite is safe to run repeatedly. Money is
+        // stored as integer cents, so SQLite's loose numeric typing costs
+        // nothing here.
         'test' => [
             'className' => Connection::class,
             'driver' => Sqlite::class,

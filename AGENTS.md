@@ -18,7 +18,7 @@ It is a demo, not a production accounting system. Prefer clarity and correctness
 |-----------|--------|
 | Language  | PHP 8.5.4 |
 | Framework | CakePHP 5.4.1 |
-| Database  | SQLite (development and test) |
+| Database  | MariaDB 11.4 in Docker (application); SQLite (test suite) |
 | Interface | Server-rendered CakePHP templates (Tailwind CSS 4) |
 | Tests     | PHPUnit 13.3.2 |
 | Linting   | PHP_CodeSniffer 4 with the `CakePHP` standard |
@@ -49,6 +49,9 @@ bin/cake migrations migrate   # apply migrations
 ./dev css                     # compile the Tailwind theme (--watch while editing templates)
 ```
 
+Anything that touches the `default` datasource — `bake`, `migrations` — needs MariaDB reachable,
+so run `./dev up` first. `composer test` does not: the test suite is on SQLite.
+
 **Never run `bin/cake` with `sudo`.** It does not need root, and running as root leaves
 root-owned files in `tmp/` and `logs/` that your normal user can no longer write.
 
@@ -73,13 +76,44 @@ docker compose exec app bin/cake bake all Invoices
 docker compose exec app composer test
 ```
 
+Opening a SQL shell:
+
+```bash
+docker compose exec db mariadb -ujussiflow -pjussiflow jussiflow
+```
+
+### The database service
+
+`db` is **MariaDB 11.4**, pinned to a minor series so a rebuild cannot move the engine underneath
+existing data. Its data lives in the `jussiflow-db` named volume — deliberately not a bind mount,
+because MariaDB's data directory needs ownership and file-locking semantics a Windows-backed mount
+cannot provide.
+
+| Setting  | Value |
+|----------|-------|
+| Host     | `db` inside the compose network, `127.0.0.1:3306` from the host |
+| Database | `jussiflow` |
+| User     | `jussiflow` / `jussiflow` |
+| Root     | `jussiflow-root` |
+
+Those credentials are committed on purpose, so `./dev up` works on a fresh clone. They are
+development values — override `DB_USER`, `DB_PASSWORD`, `DB_NAME` or `DB_ROOT_PASSWORD` from the
+environment, and never reuse them anywhere that matters.
+
+The `app` service waits on a `service_healthy` condition rather than merely on the container
+existing: MariaDB's first boot initialises the data directory, and without the healthcheck the
+application starts against a refused connection. To wipe the database and start over, run
+`./dev down` followed by `docker volume rm jussiflow_jussiflow-db`.
+
 How the setup is put together:
 
 - **`Dockerfile`** — three stages. The first is a `php:8.5-apache` base with `intl` (required by
-  CakePHP) and `zip` built in, plus the Composer binary. The second resolves Composer dependencies
-  in isolation so that layer only rebuilds when `composer.json`/`composer.lock` change. The third
-  is the application runtime. `mbstring`, `pdo_sqlite`, `dom`, `xml` and `opcache` already ship in
-  the base image.
+  CakePHP), `zip` and `pdo_mysql` (how the app reaches MariaDB — it compiles against PHP's bundled
+  mysqlnd, so it needs no client library of its own) built in, plus the Composer binary. The second
+  resolves Composer dependencies in isolation so that layer only rebuilds when
+  `composer.json`/`composer.lock` change. The third is the application runtime. `mbstring`,
+  `pdo_sqlite` (still used by the test suite), `dom`, `xml` and `opcache` already ship in the base
+  image.
 
   Both the dependency and runtime stages derive from the *same* base on purpose. Resolving the
   lock file on a stock `composer` image fails, because that image has neither `ext-intl` nor
@@ -151,12 +185,19 @@ point, and in an accounting context those errors accumulate into totals that do 
 
 This is cheap to honour now and painful to retrofit once data and totals logic exist.
 
-### 2. SQLite for development and test
+### 2. MariaDB for the application, SQLite for the test suite
 
-`pdo_sqlite` is installed and no database server is required. The `test` datasource in
-`config/app_local.php` already defaults to `sqlite://127.0.0.1/tmp/tests.sqlite`.
+The `default` datasource is **MariaDB**, served by the `db` container (see *The database service*
+above). The application, `bake` and `migrations` all run against it, so schema behaviour in
+development matches a realistic deployment target rather than SQLite's much looser one.
 
-Because money is stored as integers, SQLite's loose numeric typing costs nothing here.
+The `test` datasource stays on **SQLite** (`sqlite://127.0.0.1/tmp/tests.sqlite`). `composer test`
+therefore needs no database server and is safe to run repeatedly. Because money is stored as
+integer cents, SQLite's loose numeric typing costs nothing in the suite.
+
+The consequence to keep in mind: tests do not exercise MariaDB's stricter typing, foreign key
+enforcement or transactional DDL. Anything that depends on those — a migration in particular —
+should be verified against the running `db` container, not trusted because the suite is green.
 
 ### 3. Server-rendered, not a JSON API
 
@@ -215,5 +256,7 @@ Follow CakePHP naming conventions — `bake` and the ORM depend on them:
 
 - `vendor/` is not committed; run `composer install` on a fresh clone
 - `config/app_local.php` is gitignored — create it from `config/app_local.example.php`
+- Inside the container `DATABASE_URL` overrides whatever `config/app_local.php` says, so the
+  app reaches the `db` service even with a stock skeleton config in place
 - DebugKit only loads when `debug` is true, and stores its panel data in a SQLite file in `tmp/`
 - `HostHeaderMiddleware` is skipped entirely in debug mode, so it is untested locally by design

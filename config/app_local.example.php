@@ -38,24 +38,25 @@ return [
      * See app.php for more configuration options.
      */
     'Datasources' => [
+        /*
+         * The application runs on MariaDB — the `db` service in
+         * docker-compose.yml, published on the host as 127.0.0.1:3306.
+         *
+         * These defaults match the development credentials in
+         * docker-compose.yml, so `bin/cake` works from the host with the stack
+         * up. Inside the container DATABASE_URL is set and overrides them.
+         */
         'default' => [
-            'host' => 'localhost',
-            /*
-             * CakePHP will use the default DB port based on the driver selected
-             * MySQL on MAMP uses port 8889, MAMP users will want to uncomment
-             * the following line and set the port accordingly
-             */
-            //'port' => 'non_standard_port_number',
+            'host' => '127.0.0.1',
+            'port' => '3306',
 
-            'username' => 'my_app',
-            'password' => 'secret',
+            'username' => 'jussiflow',
+            'password' => 'jussiflow',
 
-            'database' => 'my_app',
-            /*
-             * If not using the default 'public' schema with the PostgreSQL driver
-             * set it here.
-             */
-            //'schema' => 'myapp',
+            'database' => 'jussiflow',
+
+            'encoding' => 'utf8mb4',
+            'timezone' => 'UTC',
 
             /*
              * You can use a DSN string to set the entire configuration
@@ -65,14 +66,12 @@ return [
 
         /*
          * The test connection is used during the test suite.
+         *
+         * It stays on SQLite on purpose: `composer test` then needs no database
+         * server and is safe to run repeatedly. Money is stored as integer
+         * cents, so SQLite's loose numeric typing costs nothing here.
          */
         'test' => [
-            'host' => 'localhost',
-            //'port' => 'non_standard_port_number',
-            'username' => 'my_app',
-            'password' => 'secret',
-            'database' => 'test_myapp',
-            //'schema' => 'myapp',
             'url' => env('DATABASE_TEST_URL', 'sqlite://127.0.0.1/tmp/tests.sqlite'),
         ],
     ],

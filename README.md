@@ -52,7 +52,7 @@ It is a demo, not a production accounting system.
 |---|---|
 | Language | PHP 8.5 |
 | Framework | CakePHP 5.4 |
-| Database | SQLite (development and test) |
+| Database | MariaDB 11.4 in Docker (application); SQLite (test suite) |
 | Interface | Server-rendered CakePHP templates |
 | Styling | Tailwind CSS 4, compiled by the standalone CLI |
 | Tests | PHPUnit 13 |
@@ -123,7 +123,8 @@ composer cs-check    # lint
 composer cs-fix      # autofix lint
 ```
 
-The test suite uses its own SQLite database and is safe to run repeatedly.
+The test suite uses its own SQLite database and is safe to run repeatedly — it needs no
+database server, unlike the application itself, which runs on the MariaDB container.
 
 ## Project layout
 

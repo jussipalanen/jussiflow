@@ -11,27 +11,60 @@ services:
         GID: ${HOST_GID:-1000}
     ports:
       - "8765:80"
+    depends_on:
+      db:
+        # Wait for MariaDB to answer queries, not merely to have a container.
+        # The first boot initialises the data directory, which takes a while;
+        # without this the app starts against a refused connection.
+        condition: service_healthy
     environment:
       DEBUG: "true"
       # Development salt only — generate a fresh one for any real deployment:
       #   openssl rand -hex 32
       SECURITY_SALT: "${SECURITY_SALT:-b9324e1bd5994f50505fb3b86da9639b86e7976df2949ebcd6e184fee7a44a63}"
       APP_FULL_BASE_URL: "http://localhost:8765"
-      SQLITE_DATABASE: "/var/www/html/data/jussiflow.sqlite"
       # The bind mount below shadows the image, so a host config/app_local.php
       # wins over docker/app_local.php and the entrypoint's fallback never fires
       # (it only copies when the file is absent). A stock skeleton app_local.php
-      # still points the default datasource at MySQL, which does not exist here.
-      # CakePHP lets a DSN override those keys, so set one: it makes the
-      # container use SQLite whichever app_local.php is in place.
-      # Note the four slashes — parseDsn() strips one, leaving an absolute path.
-      DATABASE_URL: "sqlite:////var/www/html/data/jussiflow.sqlite"
+      # still points the default datasource at a MySQL host that does not exist
+      # here. CakePHP lets a DSN override those keys, so set one: it makes the
+      # container reach the db service whichever app_local.php is in place.
+      # `db` is the compose service name, resolved on the default network.
+      DATABASE_URL: "mysql://${DB_USER:-jussiflow}:${DB_PASSWORD:-jussiflow}@db/${DB_NAME:-jussiflow}"
     volumes:
       # Live editing: host source is authoritative while developing.
       - .:/var/www/html
-      # Keep SQLite data and caches out of the bind mount's way if you switch
-      # to an image-only workflow; harmless otherwise.
-      - jussiflow-data:/var/www/html/data
+
+  db:
+    # 11.4 is the current MariaDB LTS. Pinned to a minor series so a rebuild
+    # cannot silently move the database engine underneath existing data.
+    image: mariadb:11.4
+    environment:
+      # Development credentials. They are committed on purpose so `./dev up`
+      # works on a fresh clone; override any of them from the environment (or a
+      # .env file) if you need something else, and never reuse them anywhere
+      # that matters.
+      MARIADB_DATABASE: "${DB_NAME:-jussiflow}"
+      MARIADB_USER: "${DB_USER:-jussiflow}"
+      MARIADB_PASSWORD: "${DB_PASSWORD:-jussiflow}"
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-jussiflow-root}"
+    ports:
+      # Exposed so host tools — a GUI client, or `bin/cake` run outside the
+      # container — can reach it. Change the left-hand port if 3306 is taken.
+      - "3306:3306"
+    volumes:
+      # Named volume, not a bind mount: MariaDB's data directory needs POSIX
+      # ownership and locking semantics that a Windows-backed mount cannot give.
+      - jussiflow-db:/var/lib/mysql
+    healthcheck:
+      # Ships with the official image; --connect proves the socket answers and
+      # --innodb_initialized that the engine finished starting.
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      # First boot initialises the data directory; don't count those failures.
+      start_period: 30s
 
 volumes:
-  jussiflow-data:
+  jussiflow-db:
