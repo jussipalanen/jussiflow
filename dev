@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+#
+# JussiFlow development helper.
+#
+#   ./dev up        start the container (builds on first run)
+#   ./dev down      stop and remove the container
+#   ./dev restart   down, then up
+#   ./dev logs      follow the container logs
+#   ./dev test      run the PHPUnit suite (extra args go to phpunit)
+#
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+APP_URL="http://localhost:8765"
+
+# Docker Compose v2 is a docker subcommand; fall back to the standalone v1 binary.
+# Both are probed by actually running them: WSL ships stubs that exist on PATH but
+# only print an installation notice, so `command -v` alone would be misleading.
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE=(docker compose)
+elif docker-compose version >/dev/null 2>&1; then
+    COMPOSE=(docker-compose)
+else
+    echo "Error: neither 'docker compose' nor 'docker-compose' is available." >&2
+    echo "In WSL, enable Docker Desktop's integration for this distro, or run:" >&2
+    echo "  sudo apt install docker.io docker-compose-v2" >&2
+    exit 1
+fi
+
+# docker-compose.yml reads these to align the container's web user with yours,
+# keeping bind-mounted files writable. They are deliberately not called UID/GID:
+# bash marks UID readonly and never exports it, so it would arrive empty.
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+export HOST_UID HOST_GID
+
+usage() {
+    # Print the header comment block above, stripping the leading "# ". Derived
+    # rather than a fixed line range, so adding a command cannot desync it.
+    awk 'NR < 3 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+}
+
+case "${1:-}" in
+    up)
+        "${COMPOSE[@]}" up -d --build
+        echo
+        echo "JussiFlow is running at ${APP_URL}"
+        echo "Logs: ./dev logs"
+        ;;
+    down)
+        "${COMPOSE[@]}" down
+        ;;
+    restart)
+        "${COMPOSE[@]}" down
+        "${COMPOSE[@]}" up -d --build
+        echo
+        echo "JussiFlow restarted at ${APP_URL}"
+        ;;
+    logs)
+        "${COMPOSE[@]}" logs -f
+        ;;
+    test)
+        shift
+        # PHPUnit needs no web server, so fall back to a one-off container when
+        # the app is not up. `run --rm` publishes no ports, so it cannot collide
+        # with a running instance.
+        if [ -n "$("${COMPOSE[@]}" ps -q app 2>/dev/null)" ]; then
+            METHOD=(exec)
+        else
+            METHOD=(run --rm)
+        fi
+
+        # Compose allocates a TTY by default, which fails with no terminal
+        # attached (CI, or piping the output). -T turns that off.
+        if [ -t 1 ]; then
+            TTY=()
+        else
+            TTY=(-T)
+        fi
+
+        # As www-data, not root: the Dockerfile remaps www-data to the host UID,
+        # so the .phpunit.cache and tmp/ files this writes into the bind mount
+        # stay owned by you. Running as root would leave root-owned files behind.
+        #
+        # vendor/bin/phpunit rather than `composer test` (which just wraps it):
+        # composer wants a writable HOME, which www-data does not have here.
+        "${COMPOSE[@]}" "${METHOD[@]}" "${TTY[@]}" --user www-data app \
+            vendor/bin/phpunit --colors=always "$@"
+        ;;
+    ""|-h|--help|help)
+        usage
+        ;;
+    *)
+        echo "Unknown command: $1" >&2
+        echo >&2
+        usage >&2
+        exit 1
+        ;;
+esac

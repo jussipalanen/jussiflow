@@ -1,0 +1,37 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        # Match the container user to your host user so bind-mounted files stay
+        # writable. NOTE: these read HOST_UID/HOST_GID, not UID/GID — bash marks
+        # UID readonly and never exports it, so ${UID} would arrive empty.
+        # The ./dev script exports these for you.
+        UID: ${HOST_UID:-1000}
+        GID: ${HOST_GID:-1000}
+    ports:
+      - "8765:80"
+    environment:
+      DEBUG: "true"
+      # Development salt only — generate a fresh one for any real deployment:
+      #   openssl rand -hex 32
+      SECURITY_SALT: "${SECURITY_SALT:-b9324e1bd5994f50505fb3b86da9639b86e7976df2949ebcd6e184fee7a44a63}"
+      APP_FULL_BASE_URL: "http://localhost:8765"
+      SQLITE_DATABASE: "/var/www/html/data/jussiflow.sqlite"
+      # The bind mount below shadows the image, so a host config/app_local.php
+      # wins over docker/app_local.php and the entrypoint's fallback never fires
+      # (it only copies when the file is absent). A stock skeleton app_local.php
+      # still points the default datasource at MySQL, which does not exist here.
+      # CakePHP lets a DSN override those keys, so set one: it makes the
+      # container use SQLite whichever app_local.php is in place.
+      # Note the four slashes — parseDsn() strips one, leaving an absolute path.
+      DATABASE_URL: "sqlite:////var/www/html/data/jussiflow.sqlite"
+    volumes:
+      # Live editing: host source is authoritative while developing.
+      - .:/var/www/html
+      # Keep SQLite data and caches out of the bind mount's way if you switch
+      # to an image-only workflow; harmless otherwise.
+      - jussiflow-data:/var/www/html/data
+
+volumes:
+  jussiflow-data:

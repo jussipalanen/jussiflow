@@ -51,6 +51,55 @@ bin/cake migrations migrate   # apply migrations
 **Never run `bin/cake` with `sudo`.** It does not need root, and running as root leaves
 root-owned files in `tmp/` and `logs/` that your normal user can no longer write.
 
+## Running with Docker
+
+Use the `./dev` helper script:
+
+```bash
+./dev up        # start (builds on first run)
+./dev down      # stop and remove
+./dev restart   # down, then up
+./dev logs      # follow logs
+```
+
+The app is then at **http://localhost:8765**.
+
+Running commands inside the container:
+
+```bash
+docker compose exec app bin/cake migrations migrate
+docker compose exec app bin/cake bake all Invoices
+docker compose exec app composer test
+```
+
+How the setup is put together:
+
+- **`Dockerfile`** — two stages. The first resolves Composer dependencies in isolation so that
+  layer only rebuilds when `composer.json`/`composer.lock` change. The second is `php:8.5-apache`
+  with `intl` (required by CakePHP), `zip` and `opcache` compiled in. `mbstring`, `pdo_sqlite`,
+  `dom` and `xml` already ship in the base image.
+- **`docker/apache/vhost.conf`** — `DocumentRoot` is `webroot/`, so `src/`, `config/` and
+  `vendor/` are not reachable over HTTP. `AllowOverride All` is required for CakePHP's
+  `.htaccess` rewrite rules.
+- **`docker/entrypoint.sh`** — self-healing startup: runs `composer install` if `vendor/` is
+  missing, falls back to the env-driven config if `config/app_local.php` is absent, creates the
+  writable `tmp/`, `logs/` and `data/` directories, and warns on an unset `SECURITY_SALT`.
+- **`docker/app_local.php`** — env-driven configuration used inside the container, since the real
+  `config/app_local.php` is gitignored and never enters the image.
+- **`dev`** — thin wrapper over `docker compose` that exports `HOST_UID`/`HOST_GID` and probes
+  for a working compose binary before use.
+
+Two details worth knowing:
+
+- **`HOST_UID`/`HOST_GID`.** The container's `www-data` is remapped to your host UID so that
+  bind-mounted files stay writable. `./dev` exports these for you. They are deliberately *not*
+  named `UID`/`GID`: bash marks `UID` readonly and never exports it, so `UID=$(id -u) docker
+  compose up` fails outright and `${UID}` in compose would arrive empty. If you invoke compose
+  by hand, pass `HOST_UID=$(id -u) HOST_GID=$(id -g)` — otherwise a host user that is not `1000`
+  will hit permission errors writing to `tmp/` and `logs/`.
+- **The salt in `docker-compose.yml` is a development value.** Generate a real one with
+  `openssl rand -hex 32` before deploying anywhere that matters.
+
 ## Architecture decisions
 
 These are settled. Do not silently revisit them.
