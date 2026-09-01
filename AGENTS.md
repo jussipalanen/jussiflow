@@ -74,10 +74,17 @@ docker compose exec app composer test
 
 How the setup is put together:
 
-- **`Dockerfile`** — two stages. The first resolves Composer dependencies in isolation so that
-  layer only rebuilds when `composer.json`/`composer.lock` change. The second is `php:8.5-apache`
-  with `intl` (required by CakePHP), `zip` and `opcache` compiled in. `mbstring`, `pdo_sqlite`,
-  `dom` and `xml` already ship in the base image.
+- **`Dockerfile`** — three stages. The first is a `php:8.5-apache` base with `intl` (required by
+  CakePHP) and `zip` built in, plus the Composer binary. The second resolves Composer dependencies
+  in isolation so that layer only rebuilds when `composer.json`/`composer.lock` change. The third
+  is the application runtime. `mbstring`, `pdo_sqlite`, `dom`, `xml` and `opcache` already ship in
+  the base image.
+
+  Both the dependency and runtime stages derive from the *same* base on purpose. Resolving the
+  lock file on a stock `composer` image fails, because that image has neither `ext-intl` nor
+  PHP 8.5, and `cakephp/cakephp` requires `ext-intl`. Do not add `opcache` to
+  `docker-php-ext-install` either — it is compiled into `php:8.5` and enabled by default, so
+  building it produces no `.so` and `make install` dies on `cp: cannot stat 'modules/*'`.
 - **`docker/apache/vhost.conf`** — `DocumentRoot` is `webroot/`, so `src/`, `config/` and
   `vendor/` are not reachable over HTTP. `AllowOverride All` is required for CakePHP's
   `.htaccess` rewrite rules.
