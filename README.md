@@ -1,58 +1,149 @@
-# CakePHP Application Skeleton
+# JussiFlow
 
-![Build Status](https://github.com/cakephp/app/actions/workflows/ci.yml/badge.svg?branch=5.x)
-[![Total Downloads](https://img.shields.io/packagist/dt/cakephp/app.svg?style=flat-square)](https://packagist.org/packages/cakephp/app)
+A demo application for **financial management, invoicing and accounting**, aimed at end users.
+
+[![CI](https://github.com/jussipalanen/jussiflow/actions/workflows/ci.yml/badge.svg)](https://github.com/jussipalanen/jussiflow/actions/workflows/ci.yml)
+[![PHP](https://img.shields.io/badge/PHP-8.5-777BB4.svg?style=flat-square&logo=php&logoColor=white)](https://www.php.net/)
+[![CakePHP](https://img.shields.io/badge/CakePHP-5.4-D33C43.svg?style=flat-square)](https://cakephp.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-38BDF8.svg?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg?style=flat-square)](https://github.com/phpstan/phpstan)
 
-A skeleton for creating applications with [CakePHP](https://cakephp.org) 5.x.
+---
 
-The framework source code can be found here: [cakephp/cakephp](https://github.com/cakephp/cakephp).
+## <img src="webroot/img/cake.icon.png" width="20" height="20" alt=""> Powered by the CakePHP Framework
 
-## Installation
+<a href="https://cakephp.org"><img src="webroot/img/cake.power.gif" width="98" height="13" alt="Powered by CakePHP"></a>
 
-1. Download [Composer](https://getcomposer.org/doc/00-intro.md) or update `composer self-update`.
-2. Run `php composer.phar create-project --prefer-dist cakephp/app [app_name]`.
+JussiFlow is built on **[CakePHP](https://cakephp.org) 5.4** — the rapid development framework
+for PHP. Nearly everything below leans on what CakePHP gives you out of the box:
 
-If Composer is installed globally, run
+| CakePHP feature | Role in JussiFlow | Status |
+|---|---|---|
+| **Server-rendered templates** | Every screen is a `.php` template; no JSON API, no client-side framework | In use |
+| **CSRF middleware** | Enabled application-wide in `src/Application.php` | In use |
+| **Routing** | `/pages/*` renders templates with no controller code of its own | In use |
+| **Convention-based ORM** | Table and entity classes resolve from table names, no mapping config | Planned |
+| **`bake` scaffolding** | Will generate the invoice CRUD screens from the database schema | Planned |
+| **Migrations** | Schema in version control, applied with one command | Planned |
+| **`DefaultPasswordHasher`** | Password hashing on the `User` entity | Planned |
+
+The framework source lives at [cakephp/cakephp](https://github.com/cakephp/cakephp), and the
+documentation is the [CakePHP 5 Book](https://book.cakephp.org/5/en/).
+
+---
+
+## What it does
+
+The scope is deliberately small:
+
+- Users log in with their own credentials
+- Users manage their own details from a profile page
+- Users create, read, update and delete invoices
+
+It is a demo, not a production accounting system.
+
+> **Current state.** Early days. The sign-in and password-reset screens exist as templates, but
+> there is no authentication behind them yet — and no models, migrations or invoice code. The
+> forms render and submit; they do not yet do anything. Check before assuming the domain exists.
+
+## Stack
+
+| Layer | Choice |
+|---|---|
+| Language | PHP 8.5 |
+| Framework | CakePHP 5.4 |
+| Database | SQLite (development and test) |
+| Interface | Server-rendered CakePHP templates |
+| Styling | Tailwind CSS 4, compiled by the standalone CLI |
+| Tests | PHPUnit 13 |
+| Static analysis | PHPStan level 8 |
+| Linting | PHP_CodeSniffer 4, `CakePHP` standard |
+
+## Getting started
+
+### With Docker (recommended)
 
 ```bash
-composer create-project --prefer-dist cakephp/app
+./dev up        # start (builds on first run)
+./dev logs      # follow the logs
+./dev down      # stop and remove
 ```
 
-In case you want to use a custom app dir name (e.g. `/myapp/`):
+The app is then at **http://localhost:8765**.
+
+Run commands inside the container:
 
 ```bash
-composer create-project --prefer-dist cakephp/app myapp
+docker compose exec app bin/cake migrations migrate
+docker compose exec app bin/cake bake all Invoices
 ```
 
-You can now either use your machine's webserver to view the default home page, or start
-up the built-in webserver with:
+### Without Docker
 
 ```bash
+composer install
+cp config/app_local.example.php config/app_local.php
 bin/cake server -p 8765
 ```
 
-Then visit `http://localhost:8765` to see the welcome page.
+> **Never run `bin/cake` with `sudo`.** It does not need root, and doing so leaves root-owned
+> files in `tmp/` and `logs/` that your normal user can no longer write.
 
-## Demo app
+### Screens
 
-Check out the [5.x-demo branch](https://github.com/cakephp/app/tree/5.x-demo), which contains demo migrations and a seeder.
-See the [README](https://github.com/cakephp/app/blob/5.x-demo/README.md) on how to get it running.
+| Screen | URL |
+|---|---|
+| Home | `/` |
+| Sign in | `/pages/login` |
+| Forgot password | `/pages/forgot-password` |
 
-## Update
+## Styling
 
-Since this skeleton is a starting point for your application and various files
-would have been modified as per your needs, there isn't a way to provide
-automated upgrades, so you have to do any updates manually.
+Tailwind CSS 4, compiled by the **standalone CLI** — a single binary, so the PHP-only image
+needs no Node or npm and the pages pull nothing from a CDN at runtime.
 
-## Configuration
+```bash
+./dev css            # compile once
+./dev css --watch    # recompile while editing templates
+```
 
-Read and edit the environment specific `config/app_local.php` and set up the
-`'Datasources'` and any other configuration relevant for your application.
-Other environment agnostic settings can be changed in `config/app.php`.
+- `resources/css/app.css` is the **source** — theme tokens, fonts, component classes.
+- `webroot/css/app.css` is the **compiled output**, committed so a fresh clone renders with no
+  build step. Never edit it by hand.
 
-## Layout
+Tailwind only emits classes it can find in the templates, so **re-run `./dev css` after adding
+one** or it will not exist in the stylesheet.
 
-The app skeleton uses [Milligram](https://milligram.io/) (v1.3) minimalist CSS
-framework by default. You can, however, replace it with any other library or
-custom styles.
+## Testing
+
+```bash
+./dev test           # PHPUnit in the container
+composer test        # PHPUnit locally
+composer cs-check    # lint
+composer cs-fix      # autofix lint
+```
+
+The test suite uses its own SQLite database and is safe to run repeatedly.
+
+## Project layout
+
+```
+config/       routes, bootstrap, app configuration
+resources/    Tailwind source (compiles into webroot/css)
+src/          application code — controllers, models, middleware
+templates/    server-rendered views, one file per action
+tests/        PHPUnit tests, mirroring src/
+webroot/      document root: compiled CSS, fonts, images
+```
+
+## Contributing
+
+Read **[AGENTS.md](AGENTS.md)** first. It records the settled architecture decisions — money is
+stored as integer cents, queries are scoped to the logged-in user — along with the conventions
+`bake` and the ORM depend on.
+
+## Credits
+
+Built with the [CakePHP Framework](https://cakephp.org). CakePHP is released under the
+[MIT License](https://github.com/cakephp/cakephp/blob/5.x/LICENSE), and the CakePHP name and
+logo are trademarks of the [Cake Software Foundation](https://cakefoundation.org).
