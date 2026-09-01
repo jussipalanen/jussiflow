@@ -4,8 +4,5 @@
  * @var array $params
  * @var string $message
  */
-if (!isset($params['escape']) || $params['escape'] !== false) {
-    $message = h($message);
-}
-?>
-<div class="message warning" onclick="this.classList.add('hidden');"><?= $message ?></div>
+$params['tone'] = 'border-amber-200 bg-amber-50 text-amber-900';
+echo $this->element('flash/default', compact('message', 'params'));
